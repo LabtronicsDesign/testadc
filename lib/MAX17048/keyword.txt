@@ -1,0 +1,5 @@
+MAX17048  KEYWORD1
+begin KEYWORD2
+readVoltage  KEYWORD2
+readSOC KEYWORD2
+readBatteryStatus KEYWORD2
