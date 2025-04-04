@@ -14,15 +14,15 @@
  // ADC reading task - runs once and deletes itself
  static void adcTask(void *pvParameters) {
    DEBUG_START_TASK("ADC");
-   Serial.println("ADC Task Started (One-shot)");
+   //Serial.println("ADC Task Started (One-shot)");
    
    // Create a local buffer for results
    AdcResult_t result;
    result.success = false;
    
    // Perform ADC capture
-   Serial.println("Starting to capture 100 samples...");
-   result.captureTimeMs = adcInstance->readSamples(result.samples, SAMPLES_PER_BATCH);
+   //Serial.println("Starting to capture 100 samples...");
+   result.captureTimeMs = adcInstance->readSamples(result.samples, SAMPLES_PER_BATCH,1);
    
    // Check if sampling was successful
    if (result.captureTimeMs > 0) {
@@ -39,7 +39,7 @@
    }
    
    DEBUG_END_TASK("ADC");
-   Serial.println("ADC Task completed, deleting itself");
+   //Serial.println("ADC Task completed, deleting itself");
    vTaskDelete(NULL);
  }
  

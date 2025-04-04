@@ -20,7 +20,7 @@
  #define DEBUG_LEVEL_ERROR 3
  
  // Set the current debug level
- #define DEBUG_LEVEL DEBUG_LEVEL_INFO
+ #define DEBUG_LEVEL DEBUG_LEVEL_WARN
  
  // Debug macros
  #ifdef DEBUG_ENABLED

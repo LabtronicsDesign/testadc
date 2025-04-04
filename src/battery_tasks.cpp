@@ -48,7 +48,7 @@
  // Battery monitoring task - runs once and deletes itself
  static void batteryTask(void *pvParameters) {
    DEBUG_START_TASK("Battery");
-   Serial.println("Battery Task Started (One-shot)");
+   //Serial.println("Battery Task Started (One-shot)");
    
    // Create a local structure for battery status
    BatteryStatus_t battStatus;
@@ -135,7 +135,7 @@
    }
    
    DEBUG_END_TASK("Battery");
-   Serial.println("Battery Task completed, deleting itself");
+   //Serial.println("Battery Task completed, deleting itself");
    vTaskDelete(NULL);
  }
  
