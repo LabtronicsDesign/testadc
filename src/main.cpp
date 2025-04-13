@@ -14,6 +14,8 @@
 #include "pulse_generator.h"
 #include "digital_pot.h"
 #include "simplified_debug.h"
+#include "pulse_tasks.h"
+#include <driver/timer.h>  // For timer-based DMA sampling
 
 // Pin definitions
 // SPI pins
@@ -276,7 +278,7 @@ void controlTask(void *pvParameters)
 
     }
 
-    Serial.println();
+    // Serial.println();
 
     // Wait before next cycle - using a shorter delay to be more responsive to switch changes
     vTaskDelay(pdMS_TO_TICKS(1000)); // Run every second
@@ -383,6 +385,21 @@ void setup()
       Serial.println("Warning: Failed to create Digital Pot task!");
       DEBUG_PRINT(DEBUG_LEVEL_WARN, "Failed to create Digital Pot task");
     }
+  }
+
+  Serial.println("Initializing Pulse Burst Monitoring module...");
+  if (!initPulseBurstModule(PULSE_MONITOR_PIN)) {
+    Serial.println("Failed to initialize Pulse Burst Monitoring module! Halting.");
+    DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Pulse Burst Monitoring module initialization failed!");
+    while (1) { vTaskDelay(pdMS_TO_TICKS(1000)); }
+  }
+  
+  // Create pulse burst monitoring task
+  Serial.println("Creating Pulse Burst Monitoring task...");
+  if (!createPulseBurstTask()) {
+    Serial.println("Failed to create Pulse Burst Monitoring task!");
+    DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create Pulse Burst Monitoring task!");
+    // Continue anyway as this is not critical for the system
   }
 
   // Create control task
