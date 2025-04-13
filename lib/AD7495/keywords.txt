@@ -1,4 +1,0 @@
-AD7495  KEYWORD1
-begin KEYWORD2
-readSample  KEYWORD2
-readSamples KEYWORD2

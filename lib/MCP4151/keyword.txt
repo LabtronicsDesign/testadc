@@ -1,0 +1,8 @@
+# keywords.txt
+MCP4151             KEYWORD1
+begin               KEYWORD2
+setWiper            KEYWORD2
+getWiper            KEYWORD2
+incrementWiper      KEYWORD2
+decrementWiper      KEYWORD2
+

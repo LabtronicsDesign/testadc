@@ -137,9 +137,9 @@
      }
      
      if (!deviceFound) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "PCA9685 not found at address 0x%02X", PCA9685_ADDR);
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "PCA9685 not found at address 0x%02X", PCA9685_ADDR);
      } else {
-         DEBUG_PRINT(DEBUG_LEVEL_INFO, "PCA9685 found at address 0x%02X", PCA9685_ADDR);
+         //DEBUG_PRINT(DEBUG_LEVEL_INFO, "PCA9685 found at address 0x%02X", PCA9685_ADDR);
      }
      
      return deviceFound;
@@ -151,7 +151,7 @@
      
      // Put to sleep
      if (!writePCA9685Register(PCA9685_MODE1, PCA9685_SLEEP)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to put PCA9685 to sleep - device may not be connected");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to put PCA9685 to sleep - device may not be connected");
          return false;
      }
      
@@ -160,13 +160,13 @@
      
      // Set Mode1 with AI (auto-increment) enabled and sleep bit cleared
      if (!writePCA9685Register(PCA9685_MODE1, PCA9685_AI)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set PCA9685 MODE1 register");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set PCA9685 MODE1 register");
          return false;
      }
      
      // Set Mode2 with OUTDRV (totem pole output) enabled
      if (!writePCA9685Register(PCA9685_MODE2, PCA9685_OUTDRV)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set PCA9685 MODE2 register");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set PCA9685 MODE2 register");
          return false;
      }
      
@@ -176,16 +176,16 @@
      // Verify that we can read from the device
      uint8_t mode1Value;
      if (!readPCA9685Register(PCA9685_MODE1, &mode1Value)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Cannot read from PCA9685 after reset");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Cannot read from PCA9685 after reset");
          return false;
      }
      
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "PCA9685 reset successful, MODE1=%02X", mode1Value);
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "PCA9685 reset successful, MODE1=%02X", mode1Value);
      return true;
  }
  
  bool initPulseGenerator(TwoWire &wire) {
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "Initializing Pulse Generator module");
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "Initializing Pulse Generator module");
      
      // Store the I2C reference
      i2cWire = &wire;
@@ -193,7 +193,7 @@
      // Create a mutex for I2C access (or use an existing one)
      i2cMutex = xSemaphoreCreateMutex();
      if (i2cMutex == NULL) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create Pulse Generator I2C mutex");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create Pulse Generator I2C mutex");
          return false;
      }
      
@@ -203,13 +203,13 @@
      
      // Check if the PCA9685 is present on the I2C bus
      if (!isPCA9685Present()) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "PCA9685 not detected on the I2C bus");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "PCA9685 not detected on the I2C bus");
          return false;
      }
      
      // Try to reset the PCA9685
      if (!resetPCA9685()) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to reset PCA9685, check connections");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to reset PCA9685, check connections");
          return false;
      }
      
@@ -218,32 +218,32 @@
      
      // Set the default frequency
      if (!setPulseFrequency(PULSE_DEFAULT_FREQ)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set default frequency");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set default frequency");
          pca9685Initialized = false;  // Revert initialization state
          return false;
      }
      
      // Set 50% duty cycle on both channels but keep disabled
      if (!set50PercentDutyCycle(PULSE_CHANNEL_1) || !set50PercentDutyCycle(PULSE_CHANNEL_2)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set duty cycle");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set duty cycle");
          pca9685Initialized = false;  // Revert initialization state
          return false;
      }
      
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse Generator initialized successfully");
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse Generator initialized successfully");
      return true;
  }
  
  bool setPulseFrequency(uint16_t freq) {
      // Check if I2C wire is available (even if not fully initialized)
      if (i2cWire == NULL) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "I2C interface not available");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "I2C interface not available");
          return false;
      }
      
      // Only check initialization flag in normal operation, not during init
      if (!pca9685Initialized) {
-         DEBUG_PRINT(DEBUG_LEVEL_WARN, "Setting frequency before full initialization");
+         //DEBUG_PRINT(DEBUG_LEVEL_WARN, "Setting frequency before full initialization");
          // We'll continue anyway, as this might be called from initPulseGenerator
      }
      
@@ -251,7 +251,7 @@
      if (freq < PULSE_MIN_FREQ) freq = PULSE_MIN_FREQ;
      if (freq > PULSE_MAX_FREQ) freq = PULSE_MAX_FREQ;
      
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "Setting pulse frequency to %u Hz", freq);
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "Setting pulse frequency to %u Hz", freq);
      
      // Calculate the prescale value
      uint8_t prescale = calculatePrescale(freq);
@@ -259,7 +259,7 @@
      // Read current mode
      uint8_t oldmode;
      if (!readPCA9685Register(PCA9685_MODE1, &oldmode)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to read MODE1 register");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to read MODE1 register");
          return false;
      }
      
@@ -268,19 +268,19 @@
      
      // Go to sleep
      if (!writePCA9685Register(PCA9685_MODE1, newmode)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set MODE1 register (sleep)");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set MODE1 register (sleep)");
          return false;
      }
      
      // Set the prescaler
      if (!writePCA9685Register(PCA9685_PRESCALE, prescale)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set prescale value");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set prescale value");
          return false;
      }
      
      // Restore the original mode value without sleep bit
      if (!writePCA9685Register(PCA9685_MODE1, oldmode)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to restore MODE1 register");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to restore MODE1 register");
          return false;
      }
      
@@ -289,7 +289,7 @@
      
      // Set the RESTART bit to apply changes
      if (!writePCA9685Register(PCA9685_MODE1, oldmode | PCA9685_RESTART)) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set RESTART bit");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to set RESTART bit");
          return false;
      }
      
@@ -299,18 +299,18 @@
      // Reapply 50% duty cycle as frequency change affects the timing
      bool success = set50PercentDutyCycle(PULSE_CHANNEL_1) && set50PercentDutyCycle(PULSE_CHANNEL_2);
      
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse frequency set to %u Hz with prescale %u", freq, prescale);
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse frequency set to %u Hz with prescale %u", freq, prescale);
      return success;
  }
  
  bool enablePulseGenerator(bool enable) {
      // Check if initialized
      if (!pca9685Initialized) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Pulse Generator not initialized");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Pulse Generator not initialized");
          return false;
      }
      
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "%s pulse generator", enable ? "Enabling" : "Disabling");
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "%s pulse generator", enable ? "Enabling" : "Disabling");
      
      // Set the enable pin
      digitalWrite(PULSE_ENABLE_PIN, enable ? HIGH : LOW);
@@ -339,7 +339,7 @@
  
  // Task function to monitor and update pulse generator
  static void pulseGeneratorTask(void *pvParameters) {
-     DEBUG_START_TASK("Pulse Generator");
+    //  DEBUG_START_TASK("Pulse Generator");
      Serial.println("Pulse Generator Task Started");
      
      // Main task loop
@@ -352,18 +352,18 @@
      }
      
      // Should never reach here
-     DEBUG_END_TASK("Pulse Generator");
+    //  DEBUG_END_TASK("Pulse Generator");
      vTaskDelete(NULL);
  }
  
  bool createPulseGeneratorTask() {
      // Check if initialized
      if (!pca9685Initialized) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Cannot create Pulse Generator task - module not initialized");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Cannot create Pulse Generator task - module not initialized");
          return false;
      }
      
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "Creating Pulse Generator task");
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "Creating Pulse Generator task");
      
      // Create the task
      BaseType_t result = xTaskCreate(
@@ -376,10 +376,10 @@
      );
      
      if (result != pdPASS) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create Pulse Generator task");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create Pulse Generator task");
          return false;
      }
      
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse Generator task created successfully");
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse Generator task created successfully");
      return true;
  }

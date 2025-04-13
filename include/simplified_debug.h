@@ -12,7 +12,7 @@
  #include "esp_heap_caps.h"
  
  // Debug control - comment out to disable debug output
- #define DEBUG_ENABLED
+//  #define DEBUG_ENABLED
  
  // Debug log levels
  #define DEBUG_LEVEL_INFO  1
@@ -20,7 +20,7 @@
  #define DEBUG_LEVEL_ERROR 3
  
  // Set the current debug level
- #define DEBUG_LEVEL DEBUG_LEVEL_WARN
+ #define DEBUG_LEVEL DEBUG_LEVEL_INFO
  
  // Debug macros
  #ifdef DEBUG_ENABLED

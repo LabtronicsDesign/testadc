@@ -28,8 +28,7 @@
      // Calculate number of cycles based on duration
      uint32_t cycles = (params->frequency * params->duration) / 1000;
      
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "Beep: %u Hz for %u ms (%u cycles)", 
-                 params->frequency, params->duration, cycles);
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "Beep: %u Hz for %u ms (%u cycles)", params->frequency, params->duration, cycles);
      
      // Generate the square wave
      for (uint32_t i = 0; i < cycles; i++) {
@@ -50,7 +49,7 @@
  }
  
  void initBeeper() {
-     DEBUG_PRINT(DEBUG_LEVEL_INFO, "Initializing beeper on GPIO %d", BEEPER_PIN);
+     //DEBUG_PRINT(DEBUG_LEVEL_INFO, "Initializing beeper on GPIO %d", BEEPER_PIN);
      
      // Initialize the beeper pin
      pinMode(BEEPER_PIN, OUTPUT);
@@ -60,9 +59,9 @@
      beeperMutex = xSemaphoreCreateMutex();
      
      if (beeperMutex == NULL) {
-         DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create beeper mutex");
+         //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create beeper mutex");
      } else {
-         DEBUG_PRINT(DEBUG_LEVEL_INFO, "Beeper initialized successfully");
+         //DEBUG_PRINT(DEBUG_LEVEL_INFO, "Beeper initialized successfully");
      }
  }
  
@@ -92,7 +91,7 @@
              );
              
              if (result != pdPASS) {
-                 DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create beeper task");
+                 //DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create beeper task");
                  free(params);
              }
          }

@@ -8,11 +8,11 @@
 #include <Wire.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "adc_tasks.h"
 #include "battery_tasks.h"
 #include "gpio_expander_tasks.h"
 #include "beeper.h"
 #include "pulse_generator.h"
+#include "digital_pot.h"
 #include "simplified_debug.h"
 
 // Pin definitions
@@ -43,12 +43,19 @@ volatile bool button2Pressed = false;
 volatile bool button3Pressed = false;
 volatile bool gpioExpanderBattAlertActive = false;
 
+// ADC status flags
+volatile bool adcSamplingActive = false;
+volatile bool adcLastSampleComplete = false;
+volatile bool adcButtonTrigger = false;
+
 // Global variables
 volatile uint16_t pFrequency = PULSE_DEFAULT_FREQ; // Default 100Hz
-volatile bool pulseEn = false;                     // Initially disabled
+volatile bool pulseEn = true;                     // Initially disabled
+volatile uint8_t strength = 128;                   // Default to mid-range (mapped to 10-250)
 
 // Task handle for control task
 TaskHandle_t controlTaskHandle = NULL;
+
 
 // Debug monitor task - periodically outputs system status
 void debugMonitorTask(void *pvParameters)
@@ -83,22 +90,16 @@ void handleSwitchChange()
     DEBUG_PRINT(DEBUG_LEVEL_INFO, "Switch state changed to: %s",
                 batteryConnectedFlag ? "CONNECTED" : "DISCONNECTED");
 
-    Serial.print("\n*** ON/OFF Switch changed: Battery ");
-    Serial.print(batteryConnectedFlag ? "CONNECTED" : "DISCONNECTED");
-    Serial.println(" ***");
-
     // Add any immediate actions needed when switch changes
     // For example, you might want to put the device into low power mode when disconnected
     if (!batteryConnectedFlag)
     {
       DEBUG_PRINT(DEBUG_LEVEL_INFO, "Taking actions for disconnected state...");
-      Serial.println("Taking actions for disconnected state...");
       // e.g., disable high-power peripherals
     }
     else
     {
       DEBUG_PRINT(DEBUG_LEVEL_INFO, "Resuming normal operation...");
-      Serial.println("Resuming normal operation...");
       // e.g., resume normal functionality
     }
   }
@@ -115,47 +116,12 @@ void controlTask(void *pvParameters)
     handleSwitchChange();
 
     // Log memory stats at the start of each cycle
-    DEBUG_STACK_INFO("Control Task");
-    DEBUG_PRINT(DEBUG_LEVEL_INFO, "--- Starting control task cycle ---");
-
-    // ----- Trigger ADC sampling -----
-    DEBUG_PRINT(DEBUG_LEVEL_INFO, "Creating ADC task");
-
-    if (!createAdcTask())
-    {
-      DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create ADC task");
-    }
 
     // ----- Trigger battery monitoring -----
-    DEBUG_PRINT(DEBUG_LEVEL_INFO, "Creating Battery task");
 
     if (!createBatteryTask())
     {
       DEBUG_PRINT(DEBUG_LEVEL_ERROR, "Failed to create Battery task");
-    }
-
-    // ----- Wait for ADC results -----
-    AdcResult_t adcResult;
-    if (receiveAdcResults(&adcResult, pdMS_TO_TICKS(5000)))
-    {
-      if (adcResult.success)
-      {
-        DEBUG_PRINT(DEBUG_LEVEL_INFO, "ADC samples received successfully");
-
-        for (int i = 0; i < SAMPLES_PER_BATCH; i++)
-        {
-          Serial.println(adcResult.samples[i]);
-        }
-        DEBUG_PRINT(DEBUG_LEVEL_INFO, "ADC batch captured in %lu ms", adcResult.captureTimeMs);
-      }
-      else
-      {
-        DEBUG_PRINT(DEBUG_LEVEL_ERROR, "ADC task reported failure");
-      }
-    }
-    else
-    {
-      DEBUG_PRINT(DEBUG_LEVEL_WARN, "Timeout waiting for ADC results");
     }
 
     // ----- Wait for battery results -----
@@ -166,12 +132,6 @@ void controlTask(void *pvParameters)
       {
         // Print the battery status
         DEBUG_PRINT(DEBUG_LEVEL_INFO, "Battery status: %dmW, %d%%", battStatus.voltage, battStatus.soc);
-
-        // Print TP4056 charging status
-        DEBUG_PRINT(DEBUG_LEVEL_INFO, "Charging Status: %s", getChargingStatusString(battStatus.chrgStatus));
-
-        // Print slide switch status
-        DEBUG_PRINT(DEBUG_LEVEL_INFO, "Battery Output: %s", battStatus.switchState ? "Connected" : "Disconnected");
 
         // Update charging flags
         isChargingFlag = (battStatus.chrgStatus == CHARGING);
@@ -198,16 +158,6 @@ void controlTask(void *pvParameters)
           }
         }
 
-        // Print the alert status separately
-        if (battStatus.isAlert)
-        {
-          DEBUG_PRINT(DEBUG_LEVEL_WARN, "Battery ALERT active");
-        }
-        else
-        {
-          DEBUG_PRINT(DEBUG_LEVEL_INFO, "Normal");
-        }
-
         // Print a summary of the global flags that other tasks can access
         DEBUG_PRINT(DEBUG_LEVEL_INFO,
                     "Battery Flags - Low: %s, Charging: %s, Complete: %s, Connected: %s",
@@ -226,14 +176,18 @@ void controlTask(void *pvParameters)
       DEBUG_PRINT(DEBUG_LEVEL_WARN, "Timeout waiting for battery results");
     }
 
+    // ----- Check Pulse Generator Status -----
+    DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse Generator status:, Frequency: %d Hz, Enabled %s", pFrequency, pulseEn ? "NO" : "YES");
+
+    // ----- Check Digital Pot Status -----
+    DEBUG_PRINT(DEBUG_LEVEL_INFO, "Digital Potentiometer status: Strength: %d (constrained to range 10-250)", strength);
+
     // ----- Check GPIO Expander Status -----
     GpioExpanderStatus_t gpioStatus;
     if (receiveGpioExpanderStatus(&gpioStatus, pdMS_TO_TICKS(10)))
     { // Short timeout, non-blocking
       if (gpioStatus.success)
       {
-        // Print battery alert state
-        DEBUG_PRINT(DEBUG_LEVEL_INFO, "GPIO Battery Alert: %s", (gpioStatus.inputState & GPIO_EXPANDER_BATT_ALRT) ? "Inactive" : "Active");
 
         // Print ELEC_SHDN state
         DEBUG_PRINT(DEBUG_LEVEL_INFO, "ELEC_SHDN: %s", (gpioStatus.outputState & GPIO_EXPANDER_ELEC_SHDN) ? "Active" : "Inactive");
@@ -297,49 +251,34 @@ void controlTask(void *pvParameters)
       {
         DEBUG_PRINT(DEBUG_LEVEL_INFO, "Battery Alert INACTIVE");
       }
-
-      // Example: Toggle ELEC_SHDN when Button 0 is pressed
-      if (buttonEvent.buttonMask == GPIO_EXPANDER_BTN0 && buttonEvent.eventType == BUTTON_PRESSED)
-      {
-        bool currentState = getElecShutdownState();
-        setElecShutdown(!currentState);
-        DEBUG_PRINT(DEBUG_LEVEL_INFO, "ELEC_SHDN toggled to: %s", !currentState ? "ON" : "OFF");
-      }
     }
 
-    // ----- Check Pulse Generator Status -----
-    DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse Generator status:, Frequency: %d Hz, Enabled %s", pFrequency, pulseEn ? "YES" : "NO");
+    
 
-    // Example: Toggle pulse generator with Button 1 and adjust frequency with Buttons 2 and 3
+    // Example: Button presses
+    if (button0Pressed)
+    {
+
+    }
+
     if (button1Pressed)
     {
-      // Toggle pulse generator enable
-      pulseEn = !pulseEn;
-      DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse Generator %s", pulseEn ? "ENABLED" : "DISABLED");
+
     }
 
     if (button2Pressed)
     {
-      // Decrease frequency by 10Hz (with lower limit)
-      if (pFrequency >= PULSE_MIN_FREQ + 10)
-      {
-        pFrequency -= 10;
-        DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse frequency decreased to %d Hz", pFrequency);
-      }
+
     }
 
     if (button3Pressed)
     {
-      // Increase frequency by 10Hz (with upper limit)
-      if (pFrequency <= PULSE_MAX_FREQ - 10)
-      {
-        pFrequency += 10;
-        DEBUG_PRINT(DEBUG_LEVEL_INFO, "Pulse frequency increased to %d Hz", pFrequency);
-      }
+
     }
 
+    Serial.println();
+
     // Wait before next cycle - using a shorter delay to be more responsive to switch changes
-    DEBUG_PRINT(DEBUG_LEVEL_INFO, "Control task cycle completed, waiting for next cycle");
     vTaskDelay(pdMS_TO_TICKS(1000)); // Run every second
   }
 }
@@ -367,17 +306,6 @@ void setup()
   DEBUG_PRINT(DEBUG_LEVEL_INFO, "I2C initialized - SDA: %d, SCL: %d", SDA_PIN, SCL_PIN);
 
   // Initialize modules
-  Serial.println("Initializing ADC module...");
-  if (!initAdcModule(sharedSPI, CS_PIN_ADC))
-  {
-    Serial.println("Failed to initialize ADC module! Halting.");
-    DEBUG_PRINT(DEBUG_LEVEL_ERROR, "ADC module initialization failed!");
-    while (1)
-    {
-      vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-  }
-
   Serial.println("Initializing Battery module...");
   if (!initBatteryModule(sharedI2C))
   {
@@ -437,6 +365,26 @@ void setup()
     }
   }
 
+  Serial.println("Initializing Digital Potentiometer...");
+  DEBUG_PRINT(DEBUG_LEVEL_INFO, "Attempting to initialize Digital Pot module");
+
+  if (!initDigitalPot(sharedSPI))
+  {
+    Serial.println("Warning: Failed to initialize Digital Pot module!");
+    Serial.println("System will continue without digital potentiometer functionality.");
+    DEBUG_PRINT(DEBUG_LEVEL_WARN, "Digital Pot module initialization failed - continuing without it");
+  }
+  else
+  {
+    // Only create the task if initialization succeeded
+    Serial.println("Creating Digital Pot task...");
+    if (!createDigitalPotTask())
+    {
+      Serial.println("Warning: Failed to create Digital Pot task!");
+      DEBUG_PRINT(DEBUG_LEVEL_WARN, "Failed to create Digital Pot task");
+    }
+  }
+
   // Create control task
   Serial.println("Creating control task...");
   DEBUG_PRINT(DEBUG_LEVEL_INFO, "Creating control task");
@@ -475,6 +423,11 @@ void setup()
   shortBeep();
   vTaskDelay(pdMS_TO_TICKS(100)); // Wait 100ms
   shortBeep();
+
+  setElecShutdown(true);
+  pulseEn = false;
+  strength = 128;
+
   DEBUG_PRINT(DEBUG_LEVEL_INFO, "Setup complete");
   Serial.println("Setup complete");
 }
